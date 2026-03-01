@@ -7,13 +7,15 @@ interface CubieProps {
   currentPosition: [number, number, number];
   quaternion: THREE.Quaternion;
   onPointerDown: (event: any) => void;
+  onWheel: (event: any) => void;
 }
 
 const Cubie: React.FC<CubieProps> = ({ 
   initialPosition, 
   currentPosition, 
   quaternion,
-  onPointerDown
+  onPointerDown,
+  onWheel
 }) => {
   const [ix, iy, iz] = initialPosition;
 
@@ -41,19 +43,20 @@ const Cubie: React.FC<CubieProps> = ({
 
   return (
     <group position={currentPosition} quaternion={quaternion}>
-      {/* 核心底座：稍微圆润一点的黑块 */}
+      {/* 核心底座 */}
       <RoundedBox 
         args={[0.98, 0.98, 0.98]} 
         radius={0.12} 
         smoothness={8}
         onPointerDown={onPointerDown}
+        onWheel={onWheel}
         castShadow
         receiveShadow
       >
         <meshStandardMaterial color={colors.base} roughness={0.3} />
       </RoundedBox>
 
-      {/* 独立颜色面：通过分块渲染确保颜色 100% 准确且平整 */}
+      {/* 独立颜色面 */}
       
       {/* 右面 (+x) - 橙色 */}
       {ix === 1 && (

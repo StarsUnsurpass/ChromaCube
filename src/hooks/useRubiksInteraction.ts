@@ -1,84 +1,73 @@
-import { useRef, useCallback } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useCallback } from 'react';
 import * as THREE from 'three';
 import { useCubeStore } from '../store/cubeStore';
 
 export const useRubiksInteraction = () => {
-  const { camera } = useThree();
   const rotateLayer = useCubeStore((state) => state.rotateLayer);
   const isAnimating = useCubeStore((state) => state.isAnimating);
 
-  const interactionRef = useRef({
-    isDragging: false,
-    startPoint: new THREE.Vector2(),
-    clickedCubiePosition: new THREE.Vector3(),
-    faceNormal: new THREE.Vector3(),
-  });
+  // 处理点击 (左键/右键) -> 控制“行”旋转
+  const handleCubieClick = useCallback((event: any) => {
+    if (isAnimating) return;
+    
+    // 阻止事件冒泡到 OrbitControls
+    event.stopPropagation();
+    
+    const { face, object, button } = event;
+    if (!face) return;
 
-  const onPointerDown = useCallback((event: any) => {
-    // 重要：只有左键 (button 0) 触发拧层逻辑
-    // 其他按键（如右键）透传给 OrbitControls 实现视角旋转
-    if (event.button !== 0 || isAnimating) return;
+    // 获取点击点的法向量，判定当前点击的是哪个面
+    const normal = face.normal.clone().applyQuaternion(object.quaternion);
+    const cubiePos = event.object.parent.position;
+
+    // 确定“行”旋转轴
+    // 如果点击的是侧面，行旋转轴通常是 Y 轴
+    // 如果点击的是顶面/底面，行旋转轴定义为 X 轴
+    let axis: 'x' | 'y' | 'z' = 'y';
+    if (Math.abs(normal.y) > 0.5) {
+      axis = 'x'; 
+    }
+
+    const layerIndex = Math.round(cubiePos[axis]);
+    
+    // 左键 (0) -> 向左转；右键 (2) -> 向右转
+    // 注意：这里的 clockwise 判定需要结合轴向
+    const clockwise = button === 0; 
+    
+    rotateLayer(axis, layerIndex, clockwise);
+  }, [isAnimating, rotateLayer]);
+
+  // 处理滚轮 -> 控制“列”旋转
+  const handleCubieWheel = useCallback((event: any) => {
+    if (isAnimating) return;
     
     event.stopPropagation();
     
-    const { face, object } = event;
+    const { face, object, deltaY } = event;
     if (!face) return;
 
-    const normal = face.normal.clone();
-    normal.applyQuaternion(object.quaternion);
+    const normal = face.normal.clone().applyQuaternion(object.quaternion);
+    const cubiePos = event.object.parent.position;
 
-    interactionRef.current = {
-      isDragging: true,
-      startPoint: new THREE.Vector2(event.clientX, event.clientY),
-      clickedCubiePosition: new THREE.Vector3(...event.object.parent.position.toArray()),
-      faceNormal: normal,
-    };
-  }, [isAnimating]);
-
-  const onPointerUp = useCallback((event: MouseEvent) => {
-    if (!interactionRef.current.isDragging) return;
-    interactionRef.current.isDragging = false;
-
-    const endPoint = new THREE.Vector2(event.clientX, event.clientY);
-    const delta = endPoint.clone().sub(interactionRef.current.startPoint);
-
-    if (delta.length() < 20) return;
-
-    const { faceNormal, clickedCubiePosition } = interactionRef.current;
-
-    const cameraRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
-    const cameraUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
-
-    const worldDragVector = new THREE.Vector3()
-      .addScaledVector(cameraRight, delta.x)
-      .addScaledVector(cameraUp, -delta.y)
-      .normalize();
-
-    const axisVector = new THREE.Vector3().crossVectors(faceNormal, worldDragVector);
-
-    const absX = Math.abs(axisVector.x);
-    const absY = Math.abs(axisVector.y);
-    const absZ = Math.abs(axisVector.z);
-
+    // 确定“列”旋转轴
+    // 如果点击侧面，列旋转轴通常是 X 或 Z
+    // 如果点击顶面，列旋转轴定义为 Z
     let axis: 'x' | 'y' | 'z' = 'x';
-    let max = absX;
-
-    if (absY > max) {
-      axis = 'y';
-      max = absY;
-    }
-    if (absZ > max) {
+    if (Math.abs(normal.x) > 0.5) {
       axis = 'z';
-      max = absZ;
+    } else if (Math.abs(normal.z) > 0.5) {
+      axis = 'x';
+    } else {
+      axis = 'z';
     }
 
-    const layerIndex = Math.round(clickedCubiePosition[axis]);
-    // 修正：反转方向判定，使拖拽感更符合直觉
-    const direction = axisVector[axis] < 0;
+    const layerIndex = Math.round(cubiePos[axis]);
+    
+    // 向上滚动 (deltaY < 0) -> 向上转；向下滚动 (deltaY > 0) -> 向下转
+    const clockwise = deltaY < 0;
 
-    rotateLayer(axis, layerIndex, direction);
-  }, [camera, rotateLayer]);
+    rotateLayer(axis, layerIndex, clockwise);
+  }, [isAnimating, rotateLayer]);
 
-  return { onPointerDown, onPointerUp };
+  return { handleCubieClick, handleCubieWheel };
 };
