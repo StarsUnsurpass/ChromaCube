@@ -1,0 +1,34 @@
+.App {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.ui-button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 12px 24px;
+  font-family: 'monospace';
+  font-size: 14px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 200px;
+}
+
+.ui-button:hover:not(:disabled) {
+  background: white;
+  color: black;
+  border-color: white;
+}
+
+.ui-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.ui-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
